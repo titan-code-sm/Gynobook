@@ -569,8 +569,14 @@ async function loadAll(){
   try{
     const ps=await db.collection('pazienti').orderBy('cognome').get();
     PAZIENTI=ps.docs.map(d=>({id:d.id,...d.data()}));
-    const as=await db.collection('appuntamenti').orderBy('data').orderBy('ora').get();
+    // Nessun orderBy composito → ordina lato client
+    const as=await db.collection('appuntamenti').get();
     APPUNTAMENTI=as.docs.map(d=>({id:d.id,...d.data()}));
+    APPUNTAMENTI.sort((a,b)=>{
+      const da=a.data||'', db2=b.data||'';
+      if(da!==db2) return da.localeCompare(db2);
+      return (a.ora||'').localeCompare(b.ora||'');
+    });
     renderOggi();renderPazTable();renderAllAppts();
     toast('Dati sincronizzati','s');
   }catch(e){toast('Errore caricamento: '+e.message,'e');}
