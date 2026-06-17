@@ -352,7 +352,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="sl">Paziente</div>
     <div class="paz-search-wrap fg" style="margin-bottom:14px">
       <label class="fl">Cerca paziente esistente</label>
-      <input type="text" id="paz-search" placeholder="Nome, cognome o codice fiscale..." oninput="searchPaz(this.value)" autocomplete="off">
+      <input type="text" id="paz-search" placeholder="Nome, cognome, telefono o email..." oninput="searchPaz(this.value)" autocomplete="off">
       <div class="paz-dd" id="paz-dd"></div>
       <div id="paz-chip-wrap"></div>
     </div>
@@ -402,7 +402,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <button class="btn bg" onclick="openNuovaPazModal()">+ Nuova Paziente</button>
   </div>
   <div class="card">
-    <input type="text" id="paz-table-search" placeholder="🔍 Cerca per nome, cognome o CF..." oninput="renderPazTable()" style="margin-bottom:14px">
+    <input type="text" id="paz-table-search" placeholder="🔍 Cerca per nome, cognome, telefono o email..." oninput="renderPazTable()" style="margin-bottom:14px">
     <div style="overflow-x:auto">
       <table class="tbl">
         <thead><tr><th>Paziente</th><th>Nascita</th><th>Telefono</th><th>Email</th><th>Azioni</th></tr></thead>
@@ -419,18 +419,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="mbox">
     <h3>Nuova Paziente</h3>
     <div class="mp">L'anagrafica viene salvata su Firebase ed è disponibile in GynoSystem</div>
-    <div class="gr2" style="margin-bottom:12px">
-      <div class="fg"><label class="fl">Nome *</label><input type="text" id="mp-nome"></div>
-      <div class="fg"><label class="fl">Cognome *</label><input type="text" id="mp-cognome"></div>
-      <div class="fg"><label class="fl">Data Nascita</label><input type="date" id="mp-nascita"></div>
-      <div class="fg"><label class="fl">Telefono</label><input type="tel" id="mp-tel" placeholder="333..."></div>
-      <div class="fg"><label class="fl">Email</label><input type="email" id="mp-email"></div>
-      <div class="fg"><label class="fl">Codice Fiscale</label><input type="text" id="mp-cf" style="text-transform:uppercase"></div>
+    <div class="gr2" style="margin-bottom:20px">
+      <div class="fg"><label class="fl">Nome *</label>
+        <input type="text" id="mp-nome" placeholder="es. Maria" onkeydown="if(event.key==='Enter')document.getElementById('mp-cognome').focus()">
+      </div>
+      <div class="fg"><label class="fl">Cognome *</label>
+        <input type="text" id="mp-cognome" placeholder="es. Rossi" onkeydown="if(event.key==='Enter')document.getElementById('mp-nascita').focus()">
+      </div>
+      <div class="fg"><label class="fl">Data di Nascita</label>
+        <input type="date" id="mp-nascita">
+      </div>
+      <div class="fg"><label class="fl">Telefono</label>
+        <input type="tel" id="mp-tel" placeholder="333 1234567">
+      </div>
+      <div class="fg" style="grid-column:span 2"><label class="fl">Email</label>
+        <input type="email" id="mp-email" placeholder="esempio@email.it" onkeydown="if(event.key==='Enter')savePaz()">
+      </div>
     </div>
-    <div class="fg" style="margin-bottom:20px"><label class="fl">Note / Motivo Prima Visita</label><textarea id="mp-note" rows="2" placeholder="Motivo della prima visita, allergie note..."></textarea></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button class="btn bgh" onclick="closeModal('m-paz')">Annulla</button>
-      <button class="btn bg" onclick="savePaz()">💾 Salva Paziente</button>
+      <button class="btn bg" style="min-width:140px;justify-content:center" onclick="savePaz()">💾 Salva Paziente</button>
     </div>
   </div>
 </div>
@@ -672,11 +680,24 @@ function renderAllAppts(){
 function searchPaz(q){
   const dd=document.getElementById('paz-dd');
   if(!q||q.length<2){dd.classList.remove('show');return;}
-  const res=PAZIENTI.filter(p=>(p.nome+' '+p.cognome+' '+(p.cf||'')).toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  const ql=q.toLowerCase();
+  const res=PAZIENTI.filter(p=>
+    (p.nome+' '+p.cognome).toLowerCase().includes(ql)||
+    (p.cognome+' '+p.nome).toLowerCase().includes(ql)||
+    (p.tel||'').includes(q)||
+    (p.email||'').toLowerCase().includes(ql)
+  ).slice(0,8);
   if(!res.length){dd.classList.remove('show');return;}
-  dd.innerHTML=res.map(p=>`<div class="paz-dd-item" onclick="selectPaz('${p.id}','${p.cognome} ${p.nome}')">
-    <div><div class="pdi-name">${p.cognome} ${p.nome}</div><div class="pdi-sub">${p.nascita?new Date(p.nascita).getFullYear()+'  ':''}${p.tel||''}</div></div>
-  </div>`).join('');
+  dd.innerHTML=res.map(p=>{
+    const src=p.source==='gynosystem'?'<span style="font-size:.65rem;background:rgba(0,122,255,.12);color:#007AFF;padding:1px 6px;border-radius:6px;font-weight:600;margin-left:4px">GS</span>':'';
+    const nascita=p.nascita?new Date(p.nascita+'T12:00:00').toLocaleDateString('it-IT'):'';
+    return `<div class="paz-dd-item" onclick="selectPaz('${p.id}','${p.cognome} ${p.nome}')">
+      <div>
+        <div class="pdi-name">${p.cognome} ${p.nome}${src}</div>
+        <div class="pdi-sub">${nascita}${nascita&&p.tel?' · ':''}${p.tel||''}</div>
+      </div>
+    </div>`;
+  }).join('');
   dd.classList.add('show');
 }
 
@@ -732,44 +753,61 @@ async function saveAppt(){
 //  PAZIENTE CRUD
 // ═══════════════════════════════════════════
 function openNuovaPazModal(){
-  ['mp-nome','mp-cognome','mp-nascita','mp-tel','mp-email','mp-cf','mp-note'].forEach(id=>sv(id,''));
+  ['mp-nome','mp-cognome','mp-nascita','mp-tel','mp-email'].forEach(id=>sv(id,''));
   document.getElementById('m-paz').classList.add('show');
   setTimeout(()=>document.getElementById('mp-nome').focus(),120);
 }
 
 async function savePaz(){
-  const nome=sv2('mp-nome').trim(),cognome=sv2('mp-cognome').trim();
+  const nome=sv2('mp-nome').trim(), cognome=sv2('mp-cognome').trim();
   if(!nome||!cognome){toast('Nome e cognome obbligatori','e');return;}
-  const paz={nome,cognome,nascita:sv2('mp-nascita'),tel:sv2('mp-tel'),email:sv2('mp-email'),cf:sv2('mp-cf').toUpperCase(),note:sv2('mp-note'),createdAt:new Date().toISOString(),source:'gynobook'};
+  const paz={
+    nome, cognome,
+    nascita: sv2('mp-nascita'),
+    tel:     sv2('mp-tel'),
+    email:   sv2('mp-email'),
+    createdAt: new Date().toISOString(),
+    source: 'gynobook'
+  };
   try{
     const ref=await db.collection('pazienti').add(paz);
     PAZIENTI.push({id:ref.id,...paz});
     PAZIENTI.sort((a,b)=>a.cognome.localeCompare(b.cognome));
-    // Auto-seleziona la paziente appena creata nel form prenota
     selectPaz(ref.id,`${cognome} ${nome}`);
     closeModal('m-paz');
     renderPazTable();
     document.getElementById('paz-count-sub').textContent=`${PAZIENTI.length} pazienti in archivio`;
-    toast(`✅ ${cognome} ${nome} aggiunta a Firebase`,'s');
+    toast(`✅ ${cognome} ${nome} aggiunta`,'s');
   }catch(e){toast('Errore: '+e.message,'e');}
 }
 
 function renderPazTable(){
   const q=(document.getElementById('paz-table-search')?.value||'').toLowerCase();
-  const list=PAZIENTI.filter(p=>(p.nome+' '+p.cognome+' '+(p.cf||'')).toLowerCase().includes(q));
+  const list=PAZIENTI.filter(p=>
+    !q ||
+    (p.nome+' '+p.cognome).toLowerCase().includes(q)||
+    (p.cognome+' '+p.nome).toLowerCase().includes(q)||
+    (p.tel||'').includes(q)||
+    (p.email||'').toLowerCase().includes(q)
+  );
   document.getElementById('paz-count-sub').textContent=`${list.length} / ${PAZIENTI.length} pazienti`;
   const tb=document.getElementById('paz-tbody');
   if(!list.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--l4);padding:24px">Nessuna paziente trovata</td></tr>';return;}
-  tb.innerHTML=list.map(p=>`<tr onclick="openPazDetail('${p.id}')">
-    <td class="tdn">${p.cognome} ${p.nome}</td>
-    <td>${p.nascita?new Date(p.nascita+'T12:00:00').toLocaleDateString('it-IT'):'–'}</td>
-    <td>${p.tel||'–'}</td>
-    <td>${p.email||'–'}</td>
-    <td><div style="display:flex;gap:5px">
-      <button class="btn bgh bic bsm" onclick="event.stopPropagation();selectPazAndPrenota('${p.id}','${p.cognome} ${p.nome}')" title="Prenota">📅</button>
-      <button class="btn bdn bic bsm" onclick="event.stopPropagation();delPaz('${p.id}')" title="Elimina">🗑️</button>
-    </div></td>
-  </tr>`).join('');
+  tb.innerHTML=list.map(p=>{
+    const src=p.source==='gynosystem'
+      ?'<span style="font-size:.65rem;background:rgba(0,122,255,.12);color:#007AFF;padding:1px 7px;border-radius:6px;font-weight:600;margin-left:6px">GynoSystem</span>'
+      :'';
+    return `<tr onclick="openPazDetail('${p.id}')">
+      <td class="tdn">${p.cognome} ${p.nome}${src}</td>
+      <td>${p.nascita?new Date(p.nascita+'T12:00:00').toLocaleDateString('it-IT'):'–'}</td>
+      <td>${p.tel||'–'}</td>
+      <td>${p.email||'–'}</td>
+      <td><div style="display:flex;gap:5px">
+        <button class="btn bgh bic bsm" onclick="event.stopPropagation();selectPazAndPrenota('${p.id}','${p.cognome} ${p.nome}')" title="Prenota">📅</button>
+        <button class="btn bdn bic bsm" onclick="event.stopPropagation();delPaz('${p.id}')" title="Elimina">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
 }
 
 function selectPazAndPrenota(id,nome){
