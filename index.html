@@ -772,8 +772,14 @@ async function savePaz(){
     nascita: sv2('mp-nascita'),
     tel:     sv2('mp-tel'),
     email:   sv2('mp-email'),
+    cf:      '',
+    note:    '',
     createdAt: new Date().toISOString(),
-    source: 'gynobook'
+    source: 'gynobook',
+    // Flag letto da GynoSystem: indica che questa paziente non ha ancora
+    // una cartella sanitaria locale e va creata automaticamente al prossimo sync.
+    // GynoSystem, dopo averla importata in locale, lo imposta a true.
+    importedToGynoSystem: false
   };
   try{
     const ref=await db.collection('pazienti').add(paz);
