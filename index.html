@@ -42,6 +42,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--lb);display:flex;hei
 .lcard .lsub{font-size:.78rem;color:rgba(255,255,255,.32);margin-bottom:28px;letter-spacing:.2px}
 .lid-label{text-align:left;font-size:.68rem;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px;margin-top:14px;display:block}
 .lid-input{width:100%;padding:13px 18px;background:rgba(255,255,255,.09);border:1.5px solid rgba(255,255,255,.12);border-radius:13px;font-size:.95rem;color:#fff;font-family:var(--fn);transition:.2s}
+.lid-input option{color:#1a1a1a;background:#fff}
 .lid-input:focus{outline:none;border-color:var(--gn);background:rgba(52,199,89,.12);box-shadow:0 0 0 4px rgba(52,199,89,.10)}
 .lid-input::placeholder{color:rgba(255,255,255,.25)}
 .lid-tip{font-size:.72rem;color:rgba(255,255,255,.22);margin-top:6px;text-align:left}
@@ -588,13 +589,23 @@ function doIdentify(){
     setTimeout(()=>e.style.display='none',3000);
     return;
   }
-  let azienda='', isDottoressa=false;
+  let azienda='', isDottoressa=false, studioPwd='';
   if(studioId==='__dottoressa__'){
     azienda='Dr.ssa Cristina Guidi';
     isDottoressa=true;
   }else{
     const s=DISPO.studi.find(x=>x.id===studioId);
     azienda=s?s.nome:'';
+    studioPwd=s?(s.password||''):'';
+  }
+  // Verifica password, solo se lo studio ne ha impostata una
+  if(studioPwd){
+    const pwd=prompt(`Inserisci la password di accesso per "${azienda}":`);
+    if(pwd===null)return;
+    if(pwd!==studioPwd){
+      toast('🚫 Password errata','e');
+      return;
+    }
   }
   OPERATOR={nome, azienda, studioId, isDottoressa};
   localStorage.setItem('gb_operator', JSON.stringify(OPERATOR));
@@ -660,7 +671,12 @@ async function loadAll(){
     PAZIENTI=ps.docs.map(d=>({id:d.id,...d.data()}));
     // Nessun orderBy composito → ordina lato client
     const as=await db.collection('appuntamenti').get();
-    APPUNTAMENTI=as.docs.map(d=>({id:d.id,...d.data()}));
+    let appts=as.docs.map(d=>({id:d.id,...d.data()}));
+    // Un centro vede solo le proprie prenotazioni. La Dr.ssa Guidi vede tutto.
+    if(!OPERATOR.isDottoressa && OPERATOR.azienda){
+      appts=appts.filter(a=>a.createdByOrg===OPERATOR.azienda);
+    }
+    APPUNTAMENTI=appts;
     APPUNTAMENTI.sort((a,b)=>{
       const da=a.data||'', db2=b.data||'';
       if(da!==db2) return da.localeCompare(db2);
