@@ -126,6 +126,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .btn:active{transform:scale(.97)}
 .bp{background:var(--pr);color:#fff}.bp:hover{background:#0066d6}
 .bg{background:var(--gn);color:#fff}.bg:hover{background:#28a745}
+.btn-hero{padding:13px 24px;font-size:.92rem;box-shadow:0 4px 18px rgba(52,199,89,.35);animation:heroGlow 2.6s ease-in-out infinite}
+.btn-hero:hover{box-shadow:0 6px 22px rgba(52,199,89,.5);transform:translateY(-1px)}
+@keyframes heroGlow{0%,100%{box-shadow:0 4px 18px rgba(52,199,89,.35)}50%{box-shadow:0 4px 26px rgba(52,199,89,.6)}}
 .bgh{background:var(--sf2);color:var(--l2);border:1.5px solid var(--sep)}.bgh:hover{background:var(--sf3)}
 .bdn{background:var(--rddim);color:var(--rd);border:1px solid transparent}.bdn:hover{background:var(--rd);color:#fff}
 .bsm{padding:6px 13px;font-size:.78rem;border-radius:7px}
@@ -177,6 +180,34 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .stat-val{font-family:var(--fs);font-size:2rem;color:var(--pr);line-height:1}
 .stat-lbl{font-size:.72rem;color:var(--l4);margin-top:4px}
 
+/* MONTHLY CALENDAR */
+.cal-card{background:var(--sf);border:1px solid var(--sep);border-radius:var(--r);padding:20px;margin-bottom:16px;box-shadow:var(--sh)}
+.cal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.cal-hdr-title{font-family:var(--fs);font-size:1.15rem;color:var(--lb);text-transform:capitalize}
+.cal-nav{display:flex;gap:6px}
+.cal-nav-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--sep);background:var(--sf2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;color:var(--l3);transition:.15s}
+.cal-nav-btn:hover{background:var(--sf3);color:var(--lb)}
+.cal-today-btn{font-size:.72rem;font-weight:700;color:var(--pr);background:var(--prdim);border:none;border-radius:8px;padding:0 12px;cursor:pointer}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal-dow{text-align:center;font-size:.65rem;font-weight:700;color:var(--l4);text-transform:uppercase;letter-spacing:.4px;padding-bottom:6px}
+.cal-day{position:relative;min-height:64px;border-radius:9px;padding:6px 6px 22px;background:var(--sf2);cursor:pointer;transition:.15s;border:1.5px solid transparent;overflow:hidden}
+.cal-day:hover{background:var(--sf3)}
+.cal-day.out{opacity:.32}
+.cal-day.today{border-color:var(--pr)}
+.cal-day.selected{border-color:var(--gn);background:var(--gndim)}
+.cal-day-num{font-size:.78rem;font-weight:700;color:var(--lb)}
+.cal-day.today .cal-day-num{color:var(--pr)}
+.cal-day-names{margin-top:3px;display:flex;flex-direction:column;gap:1px}
+.cal-day-name-pill{font-size:.6rem;color:var(--l3);background:rgba(255,255,255,.7);border-radius:4px;padding:1px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.cal-day-more{font-size:.6rem;color:var(--pr);font-weight:700;position:absolute;bottom:4px;right:6px}
+.cal-day-dot-row{position:absolute;bottom:4px;left:6px;display:flex;gap:2px}
+.cal-dot{width:5px;height:5px;border-radius:50%;background:var(--gn)}
+
+/* AGENDA GROUPED LIST */
+.agenda-group-lbl{font-size:.68rem;font-weight:700;color:var(--l4);text-transform:uppercase;letter-spacing:.6px;margin:18px 0 8px;display:flex;align-items:center;gap:8px}
+.agenda-group-lbl::after{content:'';flex:1;height:1px;background:var(--sep)}
+.agenda-group-lbl:first-child{margin-top:0}
+
 /* TABLE */
 .tbl{width:100%;border-collapse:collapse}
 .tbl th{padding:10px 14px;text-align:left;font-size:.68rem;font-weight:700;color:var(--l4);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--sep)}
@@ -215,6 +246,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   .mov{align-items:flex-end}
   .mbox{width:100%;border-radius:24px 24px 0 0;max-height:90vh;padding:24px 18px calc(32px + env(safe-area-inset-bottom,0px))}
   .tbl{min-width:420px}.card:has(.tbl){overflow-x:auto}
+  .cal-card{padding:14px}
+  .cal-day{min-height:46px;padding:4px 3px 16px;border-radius:7px}
+  .cal-day-num{font-size:.7rem}
+  .cal-day-names{display:none}
+  .cal-day-dot-row{position:absolute;bottom:3px;left:0;right:0;justify-content:center}
+  .cal-day-more{display:none}
+  .cal-dow{font-size:.58rem}
 }
 @supports(padding:env(safe-area-inset-bottom)){
   .mbar{padding-top:env(safe-area-inset-top);height:calc(56px + env(safe-area-inset-top))}
@@ -301,16 +339,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <div id="s-oggi" class="sec active">
   <div class="phdr">
     <div><div class="ptit" id="oggi-title">Oggi</div><div class="psub" id="oggi-sub">Caricamento...</div></div>
-    <button class="btn bg" onclick="nav(document.querySelector('[onclick*=prenota]'),'s-prenota')">+ Prenota</button>
+    <button class="btn bg btn-hero" onclick="nav(document.querySelector('[onclick*=prenota]'),'s-prenota')">➕ Prenota</button>
   </div>
   <div class="stat-row" id="oggi-stats"></div>
-  <div class="card">
-    <div class="ctit">Appuntamenti di Oggi <span id="oggi-count-badge" class="badge bbl">0</span></div>
-    <div id="oggi-list"></div>
+
+  <div class="cal-card">
+    <div class="cal-hdr">
+      <div class="cal-hdr-title" id="cal-month-title">—</div>
+      <div class="cal-nav">
+        <button class="cal-today-btn" onclick="calGoToday()">Oggi</button>
+        <button class="cal-nav-btn" onclick="calShiftMonth(-1)">‹</button>
+        <button class="cal-nav-btn" onclick="calShiftMonth(1)">›</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="cal-dow-row"></div>
+    <div class="cal-grid" id="cal-grid" style="margin-top:5px"></div>
   </div>
-  <div class="card" style="margin-top:16px">
-    <div class="ctit">Prossimi 7 Giorni</div>
-    <div id="prossimi-list"></div>
+
+  <div class="card">
+    <div class="ctit">Appuntamenti <span id="oggi-count-badge" class="badge bbl">0</span></div>
+    <div id="oggi-list"></div>
   </div>
 </div>
 
@@ -451,6 +499,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div id="ma-body"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
       <button class="btn bdn bsm" id="ma-del-btn">🗑️ Elimina</button>
+      <button class="btn bp bsm" id="ma-edit-btn" style="display:none">✏️ Modifica</button>
       <button class="btn bgh" onclick="closeModal('m-appt')">Chiudi</button>
     </div>
   </div>
@@ -601,34 +650,130 @@ function toggleSidebar(){
 function closeSidebar(){document.querySelector('aside').classList.remove('open');document.getElementById('backdrop').classList.remove('show');}
 
 // ═══════════════════════════════════════════
-//  OGGI
+//  OGGI + CALENDARIO MENSILE
 // ═══════════════════════════════════════════
+let calViewDate=new Date(); // mese attualmente mostrato nel calendario
+let calSelectedDate=null;   // giorno selezionato (null = mostra agenda raggruppata)
+
+function todayStr(){return new Date().toISOString().split('T')[0];}
+
 function renderOggi(){
-  const today=new Date().toISOString().split('T')[0];
-  const dObj=new Date(); 
+  const today=todayStr();
+  const dObj=new Date();
   document.getElementById('oggi-title').textContent='Oggi — '+dObj.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('oggi-sub').textContent=`${PAZIENTI.length} pazienti · ${APPUNTAMENTI.length} appuntamenti totali`;
 
-  const todayAppts=APPUNTAMENTI.filter(a=>a.data===today).sort((a,b)=>a.ora.localeCompare(b.ora));
-  const future=APPUNTAMENTI.filter(a=>a.data>today).slice(0,10);
-
-  // Stats
+  const todayAppts=APPUNTAMENTI.filter(a=>a.data===today);
+  const future=APPUNTAMENTI.filter(a=>a.data>today);
   const confermati=APPUNTAMENTI.filter(a=>a.stato==='confermato').length;
+
   document.getElementById('oggi-stats').innerHTML=`
     <div class="stat-box"><div class="stat-val" style="color:var(--gn)">${todayAppts.length}</div><div class="stat-lbl">Oggi</div></div>
     <div class="stat-box"><div class="stat-val" style="color:var(--pr)">${future.length}</div><div class="stat-lbl">Prossimi</div></div>
     <div class="stat-box"><div class="stat-val">${PAZIENTI.length}</div><div class="stat-lbl">Pazienti</div></div>
     <div class="stat-box"><div class="stat-val" style="color:var(--gn)">${confermati}</div><div class="stat-lbl">Confermati</div></div>`;
   document.getElementById('nb-oggi').textContent=todayAppts.length;
-  document.getElementById('oggi-count-badge').textContent=todayAppts.length;
 
+  calRender();
+  renderOggiList();
+}
+
+function renderOggiList(){
   const c=document.getElementById('oggi-list');
-  if(!todayAppts.length){c.innerHTML='<div class="oggi-empty"><div class="ei">📭</div><p>Nessun appuntamento per oggi</p></div>';} 
-  else c.innerHTML=todayAppts.map(a=>apptCard(a)).join('');
+  const badge=document.getElementById('oggi-count-badge');
 
-  const pc=document.getElementById('prossimi-list');
-  if(!future.length){pc.innerHTML='<div style="text-align:center;padding:20px;color:var(--l4);font-size:.85rem">Nessun appuntamento futuro</div>';}
-  else pc.innerHTML=future.map(a=>apptCard(a,true)).join('');
+  if(calSelectedDate){
+    // Giorno specifico selezionato dal calendario
+    const list=APPUNTAMENTI.filter(a=>a.data===calSelectedDate).sort((a,b)=>(a.ora||'').localeCompare(b.ora||''));
+    badge.textContent=list.length;
+    const dStr=new Date(calSelectedDate+'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+    const clearBtn=`<button class="btn bgh bsm" style="margin-bottom:12px" onclick="calClearSelection()">← Torna alla vista generale</button>`;
+    if(!list.length){c.innerHTML=clearBtn+`<div class="oggi-empty"><div class="ei">📭</div><p>Nessun appuntamento il ${dStr}</p></div>`;return;}
+    c.innerHTML=clearBtn+`<div class="agenda-group-lbl">${dStr}</div>`+list.map(a=>apptCard(a)).join('');
+    return;
+  }
+
+  // Vista generale: raggruppata per periodo
+  const today=todayStr();
+  const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
+  const tomorrowStr=tomorrow.toISOString().split('T')[0];
+  const weekEnd=new Date();weekEnd.setDate(weekEnd.getDate()+7);
+  const weekEndStr=weekEnd.toISOString().split('T')[0];
+
+  const todayAppts=APPUNTAMENTI.filter(a=>a.data===today).sort((a,b)=>(a.ora||'').localeCompare(b.ora||''));
+  const tomorrowAppts=APPUNTAMENTI.filter(a=>a.data===tomorrowStr).sort((a,b)=>(a.ora||'').localeCompare(b.ora||''));
+  const weekAppts=APPUNTAMENTI.filter(a=>a.data>tomorrowStr&&a.data<=weekEndStr).sort((a,b)=>a.data===b.data?(a.ora||'').localeCompare(b.ora||''):a.data.localeCompare(b.data));
+  const laterAppts=APPUNTAMENTI.filter(a=>a.data>weekEndStr).sort((a,b)=>a.data===b.data?(a.ora||'').localeCompare(b.ora||''):a.data.localeCompare(b.data)).slice(0,15);
+
+  badge.textContent=todayAppts.length;
+
+  const groups=[
+    {lbl:'Oggi',list:todayAppts,showDate:false},
+    {lbl:'Domani',list:tomorrowAppts,showDate:false},
+    {lbl:'Questa Settimana',list:weekAppts,showDate:true},
+    {lbl:'Più Avanti',list:laterAppts,showDate:true}
+  ].filter(g=>g.list.length);
+
+  if(!groups.length){c.innerHTML='<div class="oggi-empty"><div class="ei">📭</div><p>Nessun appuntamento in programma</p></div>';return;}
+  c.innerHTML=groups.map(g=>`<div class="agenda-group-lbl">${g.lbl} <span style="color:var(--l3);font-weight:600">(${g.list.length})</span></div>${g.list.map(a=>apptCard(a,g.showDate)).join('')}`).join('');
+}
+
+// ── CALENDARIO MENSILE ──────────────────────────────────────
+const DOW_LABELS=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+
+function calRender(){
+  const y=calViewDate.getFullYear(), m=calViewDate.getMonth();
+  document.getElementById('cal-month-title').textContent=calViewDate.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+
+  const dowRow=document.getElementById('cal-dow-row');
+  dowRow.innerHTML=DOW_LABELS.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+
+  const firstOfMonth=new Date(y,m,1);
+  let startOffset=firstOfMonth.getDay()-1; if(startOffset<0)startOffset=6; // lunedì=0
+  const startDate=new Date(y,m,1-startOffset);
+
+  const today=todayStr();
+  const cells=[];
+  for(let i=0;i<42;i++){
+    const d=new Date(startDate);d.setDate(startDate.getDate()+i);
+    const dStr=d.toISOString().split('T')[0];
+    const isOut=d.getMonth()!==m;
+    const isToday=dStr===today;
+    const isSelected=dStr===calSelectedDate;
+    const dayAppts=APPUNTAMENTI.filter(a=>a.data===dStr).sort((a,b)=>(a.ora||'').localeCompare(b.ora||''));
+    const namesToShow=dayAppts.slice(0,2);
+    const extra=dayAppts.length-namesToShow.length;
+    const namesHtml=namesToShow.map(a=>`<div class="cal-day-name-pill">${(a.pazienteNome||'Paziente').split(' ')[0]}</div>`).join('');
+    const moreHtml=extra>0?`<div class="cal-day-more">+${extra}</div>`:'';
+    const dotsHtml=dayAppts.length&&!namesToShow.length?`<div class="cal-day-dot-row">${dayAppts.slice(0,4).map(()=>'<div class="cal-dot"></div>').join('')}</div>`:'';
+    cells.push(`<div class="cal-day${isOut?' out':''}${isToday?' today':''}${isSelected?' selected':''}" onclick="calSelectDay('${dStr}')" title="${dayAppts.length} appuntamenti">
+      <div class="cal-day-num">${d.getDate()}</div>
+      <div class="cal-day-names">${namesHtml}</div>
+      ${moreHtml}${dotsHtml}
+    </div>`);
+  }
+  document.getElementById('cal-grid').innerHTML=cells.join('');
+}
+
+function calShiftMonth(delta){
+  calViewDate.setMonth(calViewDate.getMonth()+delta);
+  calRender();
+}
+function calGoToday(){
+  calViewDate=new Date();
+  calSelectedDate=null;
+  calRender();
+  renderOggiList();
+}
+function calSelectDay(dStr){
+  calSelectedDate=dStr;
+  calRender();
+  renderOggiList();
+}
+function calClearSelection(){
+  calSelectedDate=null;
+  calRender();
+  renderOggiList();
 }
 
 const TIPO_ICONS={ginecologica:'🌸',ostetrica:'🤰',ecografia:'🖥️',primo_accesso:'🔬',controllo:'💊',ritiro_referto:'📋'};
@@ -833,16 +978,20 @@ function openPazDetail(id){
   const p=PAZIENTI.find(x=>x.id===id);if(!p)return;
   const appts=APPUNTAMENTI.filter(a=>a.pazienteId===id).sort((a,b)=>b.data.localeCompare(a.data));
   document.getElementById('ma-title').textContent=`${p.cognome} ${p.nome}`;
-  document.getElementById('ma-meta').textContent=`${p.nascita?'Nata: '+new Date(p.nascita+'T12:00:00').toLocaleDateString('it-IT'):''}  ${p.tel?'· Tel: '+p.tel:''}`;
+  document.getElementById('ma-meta').textContent=p.source==='gynosystem'?'Anagrafica creata su GynoSystem':'Anagrafica creata su GynoBook';
   document.getElementById('ma-body').innerHTML=`
-    <div style="background:var(--sf2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:.85rem;line-height:1.7">
-      <strong>CF:</strong> ${p.cf||'–'}<br>
+    <div style="background:var(--sf2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:.85rem;line-height:1.9">
+      <strong>Data di nascita:</strong> ${p.nascita?new Date(p.nascita+'T12:00:00').toLocaleDateString('it-IT'):'–'}<br>
+      <strong>Telefono:</strong> ${p.tel||'–'}<br>
       <strong>Email:</strong> ${p.email||'–'}<br>
+      <strong>Codice Fiscale:</strong> ${p.cf||'–'}<br>
       ${p.note?`<strong>Note:</strong> ${p.note}`:''}
     </div>
     <div style="font-weight:700;font-size:.85rem;margin-bottom:10px">Appuntamenti (${appts.length})</div>
     ${appts.length?appts.map(a=>apptCard(a,true)).join(''):'<div style="color:var(--l4);font-size:.85rem">Nessun appuntamento</div>'}`;
+  document.getElementById('ma-del-btn').style.display='inline-flex';
   document.getElementById('ma-del-btn').onclick=()=>{if(confirm('Eliminare questa paziente?'))delPaz(id);};
+  document.getElementById('ma-edit-btn').style.display='none';
   document.getElementById('m-appt').classList.add('show');
 }
 
@@ -880,8 +1029,71 @@ function openApptDetail(id){
         <button class="stato-pill ${a.stato==='cancellato'?'active':''}" onclick="updateApptStato('${id}','cancellato',this.closest('.stato-pills'))">❌ Cancellato</button>
       </div>
     </div>`;
+  document.getElementById('ma-del-btn').style.display='inline-flex';
   document.getElementById('ma-del-btn').onclick=()=>{if(confirm('Eliminare questo appuntamento?'))delAppt(id);};
+  document.getElementById('ma-edit-btn').style.display='inline-flex';
+  document.getElementById('ma-edit-btn').textContent='✏️ Modifica';
+  document.getElementById('ma-edit-btn').onclick=()=>openApptEdit(id);
   document.getElementById('m-appt').classList.add('show');
+}
+
+function openApptEdit(id){
+  const a=APPUNTAMENTI.find(x=>x.id===id);if(!a)return;
+  document.getElementById('ma-title').textContent='Modifica · '+(a.pazienteNome||'Appuntamento');
+  document.getElementById('ma-meta').textContent='Aggiorna i dettagli e salva';
+  document.getElementById('ma-body').innerHTML=`
+    <div class="gr3" style="margin-bottom:12px">
+      <div class="fg"><label class="fl">Data *</label><input type="date" id="me-data" value="${a.data||''}"></div>
+      <div class="fg"><label class="fl">Ora *</label><input type="time" id="me-ora" value="${a.ora||''}"></div>
+      <div class="fg"><label class="fl">Durata (min)</label>
+        <select id="me-dur">
+          ${[20,30,45,60,90].map(v=>`<option value="${v}" ${Number(a.durata)===v?'selected':''}>${v} min</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="gr2" style="margin-bottom:12px">
+      <div class="fg"><label class="fl">Tipo Visita *</label>
+        <select id="me-tipo">
+          ${[['ginecologica','🌸 Visita Ginecologica'],['ostetrica','🤰 Visita Ostetrica'],['ecografia','🖥️ Ecografia'],['primo_accesso','🔬 Primo Accesso'],['controllo','💊 Controllo Farmacologico'],['ritiro_referto','📋 Ritiro Referto']]
+            .map(([v,l])=>`<option value="${v}" ${a.tipo===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Stato</label>
+        <select id="me-stato">
+          ${[['confermato','✅ Confermato'],['in_attesa','⏳ In attesa'],['completato','✔️ Completato'],['cancellato','❌ Cancellato']]
+            .map(([v,l])=>`<option value="${v}" ${a.stato===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:4px">
+      <label class="fl">Note</label>
+      <textarea id="me-note" rows="3">${a.note||''}</textarea>
+    </div>`;
+  document.getElementById('ma-del-btn').style.display='none';
+  document.getElementById('ma-edit-btn').style.display='inline-flex';
+  document.getElementById('ma-edit-btn').textContent='💾 Salva Modifiche';
+  document.getElementById('ma-edit-btn').onclick=()=>saveApptEdit(id);
+  document.getElementById('m-appt').classList.add('show');
+}
+
+async function saveApptEdit(id){
+  const data=sv2('me-data'), ora=sv2('me-ora'), tipo=sv2('me-tipo');
+  if(!data||!ora||!tipo){toast('Data, ora e tipo sono obbligatori','e');return;}
+  const upd={
+    data, ora, tipo,
+    durata: Number(sv2('me-dur'))||30,
+    stato: sv2('me-stato'),
+    note: sv2('me-note')
+  };
+  try{
+    await db.collection('appuntamenti').doc(id).update(upd);
+    const a=APPUNTAMENTI.find(x=>x.id===id);
+    if(a)Object.assign(a,upd);
+    document.getElementById('ma-edit-btn').textContent='✏️ Modifica';
+    closeModal('m-appt');
+    renderOggi();renderAllAppts();
+    toast('✅ Appuntamento aggiornato','s');
+  }catch(e){toast('Errore: '+e.message,'e');}
 }
 
 async function updateApptStato(id,stato,pills){
