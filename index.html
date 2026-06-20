@@ -145,10 +145,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 /* APPOINTMENT ITEMS */
 .appt-item{background:var(--sf);border:1px solid var(--sep);border-radius:var(--rsm);padding:16px;margin-bottom:8px;display:flex;align-items:flex-start;gap:14px;transition:.15s;cursor:pointer}
 .appt-item:hover{box-shadow:var(--sh);border-color:rgba(0,0,0,.1)}
-.appt-time-col{text-align:center;min-width:52px;flex-shrink:0}
-.appt-hour{font-family:var(--fs);font-size:1.2rem;color:var(--pr);line-height:1}
-.appt-min{font-size:.7rem;color:var(--l4);margin-top:1px}
-.appt-dot-line{width:2px;background:var(--sep);flex:1;min-height:30px;border-radius:2px;margin:6px auto 0}
+.appt-time-col{text-align:center;min-width:56px;flex-shrink:0}
+.appt-hour{font-family:var(--fs);font-size:1.05rem;color:var(--pr);line-height:1;white-space:nowrap;letter-spacing:.2px}
+.appt-min{display:none}
+.appt-dot-line{width:2px;background:var(--sep);flex:1;min-height:30px;border-radius:2px;margin:8px auto 0}
 .appt-body{flex:1}
 .appt-name{font-weight:700;font-size:.9rem;color:var(--lb);margin-bottom:4px}
 .appt-type{font-size:.78rem;color:var(--l3)}
@@ -190,16 +190,23 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .cal-today-btn{font-size:.72rem;font-weight:700;color:var(--pr);background:var(--prdim);border:none;border-radius:8px;padding:0 12px;cursor:pointer}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
 .cal-dow{text-align:center;font-size:.65rem;font-weight:700;color:var(--l4);text-transform:uppercase;letter-spacing:.4px;padding-bottom:6px}
+.cal-dow.weekend{color:var(--or)}
 .cal-day{position:relative;min-height:64px;border-radius:9px;padding:6px 6px 22px;background:var(--sf2);cursor:pointer;transition:.15s;border:1.5px solid transparent;overflow:hidden}
 .cal-day:hover{background:var(--sf3)}
 .cal-day.out{opacity:.32}
-.cal-day.today{border-color:var(--pr)}
-.cal-day.selected{border-color:var(--gn);background:var(--gndim)}
+.cal-day.weekend{background:rgba(255,149,0,.07)}
+.cal-day.weekend:hover{background:rgba(255,149,0,.13)}
+.cal-day.has-appt{background:var(--gndim);border-color:rgba(52,199,89,.35)}
+.cal-day.has-appt:hover{background:rgba(52,199,89,.22)}
+.cal-day.today{border-color:var(--pr);border-width:2px}
+.cal-day.selected{border-color:var(--gn);border-width:2px;background:rgba(52,199,89,.28)}
 .cal-day-num{font-size:.78rem;font-weight:700;color:var(--lb)}
 .cal-day.today .cal-day-num{color:var(--pr)}
+.cal-day.weekend .cal-day-num{color:#b35900}
 .cal-day-names{margin-top:3px;display:flex;flex-direction:column;gap:1px}
-.cal-day-name-pill{font-size:.6rem;color:var(--l3);background:rgba(255,255,255,.7);border-radius:4px;padding:1px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
-.cal-day-more{font-size:.6rem;color:var(--pr);font-weight:700;position:absolute;bottom:4px;right:6px}
+.cal-day-name-pill{font-size:.62rem;font-weight:600;color:#1a7a32;background:#fff;border-radius:4px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.cal-day-more{font-size:.62rem;color:#1a7a32;font-weight:800;position:absolute;bottom:4px;right:6px}
+.cal-day-count{position:absolute;top:3px;right:4px;background:var(--gn);color:#fff;font-size:.6rem;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
 .cal-day-dot-row{position:absolute;bottom:4px;left:6px;display:flex;gap:2px}
 .cal-dot{width:5px;height:5px;border-radius:50%;background:var(--gn)}
 
@@ -419,21 +426,20 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <select id="pr-dur"><option value="20">20 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option></select>
       </div>
     </div>
-    <div class="gr2" style="margin-bottom:12px">
-      <div class="fg"><label class="fl">Tipo Visita *</label>
-        <select id="pr-tipo">
-          <option value="">-- Seleziona --</option>
-          <option value="ginecologica">🌸 Visita Ginecologica</option>
-          <option value="ostetrica">🤰 Visita Ostetrica</option>
-          <option value="ecografia">🖥️ Ecografia</option>
-          <option value="primo_accesso">🔬 Primo Accesso</option>
-          <option value="controllo">💊 Controllo Farmacologico</option>
-          <option value="ritiro_referto">📋 Ritiro Referto</option>
-        </select>
-      </div>
-      <div class="fg"><label class="fl">Stato</label>
-        <select id="pr-stato"><option value="confermato">✅ Confermato</option><option value="in_attesa">⏳ In attesa conferma</option></select>
-      </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Tipo Visita *</label>
+      <select id="pr-tipo">
+        <option value="">-- Seleziona --</option>
+        <option value="ginecologica">🌸 Visita Ginecologica</option>
+        <option value="ostetrica">🤰 Visita Ostetrica</option>
+        <option value="ecografia">🖥️ Ecografia</option>
+        <option value="primo_accesso">🔬 Primo Accesso</option>
+        <option value="controllo">💊 Controllo Farmacologico</option>
+        <option value="ritiro_referto">📋 Ritiro Referto</option>
+      </select>
+    </div>
+    <div style="background:var(--sf2);border-radius:10px;padding:10px 14px;font-size:.78rem;color:var(--l3);margin-bottom:16px">
+      ⏳ La prenotazione nasce <strong>In attesa</strong>. Passerà a Confermato/Completato automaticamente quando la visita viene registrata su GynoSystem.
     </div>
     <div class="fg" style="margin-bottom:20px">
       <label class="fl">Note Appuntamento</label>
@@ -497,8 +503,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <h3 id="ma-title">Dettaglio Appuntamento</h3>
     <div class="mp" id="ma-meta"></div>
     <div id="ma-body"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap">
       <button class="btn bdn bsm" id="ma-del-btn">🗑️ Elimina</button>
+      <button class="btn bgh bsm" id="ma-anag-btn" style="display:none">👤 Vedi Anagrafica</button>
       <button class="btn bp bsm" id="ma-edit-btn" style="display:none">✏️ Modifica</button>
       <button class="btn bgh" onclick="closeModal('m-appt')">Chiudi</button>
     </div>
@@ -726,7 +733,7 @@ function calRender(){
   document.getElementById('cal-month-title').textContent=calViewDate.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
 
   const dowRow=document.getElementById('cal-dow-row');
-  dowRow.innerHTML=DOW_LABELS.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  dowRow.innerHTML=DOW_LABELS.map((d,i)=>`<div class="cal-dow${i>=5?' weekend':''}">${d}</div>`).join('');
 
   const firstOfMonth=new Date(y,m,1);
   let startOffset=firstOfMonth.getDay()-1; if(startOffset<0)startOffset=6; // lunedì=0
@@ -740,14 +747,20 @@ function calRender(){
     const isOut=d.getMonth()!==m;
     const isToday=dStr===today;
     const isSelected=dStr===calSelectedDate;
+    const dow=d.getDay(); // 0=domenica,6=sabato
+    const isWeekend=dow===0||dow===6;
     const dayAppts=APPUNTAMENTI.filter(a=>a.data===dStr).sort((a,b)=>(a.ora||'').localeCompare(b.ora||''));
+    const hasAppt=dayAppts.length>0;
     const namesToShow=dayAppts.slice(0,2);
     const extra=dayAppts.length-namesToShow.length;
     const namesHtml=namesToShow.map(a=>`<div class="cal-day-name-pill">${(a.pazienteNome||'Paziente').split(' ')[0]}</div>`).join('');
     const moreHtml=extra>0?`<div class="cal-day-more">+${extra}</div>`:'';
-    const dotsHtml=dayAppts.length&&!namesToShow.length?`<div class="cal-day-dot-row">${dayAppts.slice(0,4).map(()=>'<div class="cal-dot"></div>').join('')}</div>`:'';
-    cells.push(`<div class="cal-day${isOut?' out':''}${isToday?' today':''}${isSelected?' selected':''}" onclick="calSelectDay('${dStr}')" title="${dayAppts.length} appuntamenti">
+    const dotsHtml=hasAppt&&!namesToShow.length?`<div class="cal-day-dot-row">${dayAppts.slice(0,4).map(()=>'<div class="cal-dot"></div>').join('')}</div>`:'';
+    const countHtml=hasAppt?`<div class="cal-day-count">${dayAppts.length}</div>`:'';
+    const cls=['cal-day',isOut?'out':'',isWeekend?'weekend':'',hasAppt?'has-appt':'',isToday?'today':'',isSelected?'selected':''].filter(Boolean).join(' ');
+    cells.push(`<div class="${cls}" onclick="calSelectDay('${dStr}')" title="${dayAppts.length} appuntamenti">
       <div class="cal-day-num">${d.getDate()}</div>
+      ${countHtml}
       <div class="cal-day-names">${namesHtml}</div>
       ${moreHtml}${dotsHtml}
     </div>`);
@@ -786,8 +799,7 @@ function apptCard(a,showDate=false){
   const creator=a.createdBy?`<div style="font-size:.7rem;color:var(--l4);margin-top:4px;display:flex;align-items:center;gap:4px">👤 <span>${a.createdBy}${a.createdByOrg?' · '+a.createdByOrg:''}</span></div>`:'';
   return `<div class="appt-item" onclick="openApptDetail('${a.id}')">
     <div class="appt-time-col">
-      <div class="appt-hour">${a.ora?a.ora.split(':')[0]:'--'}</div>
-      <div class="appt-min">${a.ora?':'+a.ora.split(':')[1]:'--'}</div>
+      <div class="appt-hour">${a.ora||'--:--'}</div>
       <div class="appt-dot-line"></div>
     </div>
     <div class="appt-body">
@@ -879,7 +891,7 @@ async function saveAppt(){
     data,ora,
     durata:parseInt(document.getElementById('pr-dur').value)||30,
     tipo,
-    stato:document.getElementById('pr-stato').value,
+    stato:'in_attesa', // sempre in attesa alla creazione: passa a confermato/completato solo via GynoSystem
     note:document.getElementById('pr-note').value.trim(),
     createdBy: OPERATOR.nome || 'Sconosciuto',
     createdByOrg: OPERATOR.azienda || '',
@@ -991,12 +1003,61 @@ function openPazDetail(id){
     ${appts.length?appts.map(a=>apptCard(a,true)).join(''):'<div style="color:var(--l4);font-size:.85rem">Nessun appuntamento</div>'}`;
   document.getElementById('ma-del-btn').style.display='inline-flex';
   document.getElementById('ma-del-btn').onclick=()=>{if(confirm('Eliminare questa paziente?'))delPaz(id);};
-  document.getElementById('ma-edit-btn').style.display='none';
+  document.getElementById('ma-anag-btn').style.display='none';
+  document.getElementById('ma-edit-btn').style.display='inline-flex';
+  document.getElementById('ma-edit-btn').textContent='✏️ Modifica Anagrafica';
+  document.getElementById('ma-edit-btn').onclick=()=>openPazEdit(id);
   document.getElementById('m-appt').classList.add('show');
+}
+
+function openPazEdit(id){
+  const p=PAZIENTI.find(x=>x.id===id);if(!p)return;
+  document.getElementById('ma-title').textContent='Modifica · '+`${p.cognome} ${p.nome}`;
+  document.getElementById('ma-meta').textContent='Aggiorna l\'anagrafica e salva';
+  document.getElementById('ma-body').innerHTML=`
+    <div class="gr2" style="margin-bottom:14px">
+      <div class="fg"><label class="fl">Nome *</label><input type="text" id="pe-nome" value="${p.nome||''}"></div>
+      <div class="fg"><label class="fl">Cognome *</label><input type="text" id="pe-cognome" value="${p.cognome||''}"></div>
+      <div class="fg"><label class="fl">Data di Nascita</label><input type="date" id="pe-nascita" value="${p.nascita||''}"></div>
+      <div class="fg"><label class="fl">Telefono</label><input type="tel" id="pe-tel" value="${p.tel||''}"></div>
+      <div class="fg" style="grid-column:span 2"><label class="fl">Email</label><input type="email" id="pe-email" value="${p.email||''}"></div>
+      <div class="fg" style="grid-column:span 2"><label class="fl">Codice Fiscale</label><input type="text" id="pe-cf" value="${p.cf||''}" style="text-transform:uppercase"></div>
+      <div class="fg" style="grid-column:span 2"><label class="fl">Note</label><textarea id="pe-note" rows="3">${p.note||''}</textarea></div>
+    </div>`;
+  document.getElementById('ma-del-btn').style.display='none';
+  document.getElementById('ma-anag-btn').style.display='none';
+  document.getElementById('ma-edit-btn').style.display='inline-flex';
+  document.getElementById('ma-edit-btn').textContent='💾 Salva Anagrafica';
+  document.getElementById('ma-edit-btn').onclick=()=>savePazEdit(id);
+  document.getElementById('m-appt').classList.add('show');
+}
+
+async function savePazEdit(id){
+  const nome=sv2('pe-nome').trim(), cognome=sv2('pe-cognome').trim();
+  if(!nome||!cognome){toast('Nome e cognome obbligatori','e');return;}
+  const upd={
+    nome, cognome,
+    nascita: sv2('pe-nascita'),
+    tel: sv2('pe-tel'),
+    email: sv2('pe-email'),
+    cf: sv2('pe-cf').toUpperCase(),
+    note: sv2('pe-note')
+  };
+  try{
+    await db.collection('pazienti').doc(id).update(upd);
+    const p=PAZIENTI.find(x=>x.id===id);
+    if(p)Object.assign(p,upd);
+    closeModal('m-appt');
+    renderPazTable();
+    toast('✅ Anagrafica aggiornata','s');
+  }catch(e){toast('Errore: '+e.message,'e');}
 }
 
 async function delPaz(id){
   if(!confirm('Eliminare definitivamente questa paziente da Firebase?'))return;
+  const pwd=prompt('Per confermare l\'eliminazione, digita la password:');
+  if(pwd===null)return;
+  if(pwd!=='Samuele2025'){toast('Password errata, eliminazione annullata','e');return;}
   try{await db.collection('pazienti').doc(id).delete();PAZIENTI=PAZIENTI.filter(p=>p.id!==id);renderPazTable();closeModal('m-appt');toast('Paziente eliminata','s');}
   catch(e){toast('Errore: '+e.message,'e');}
 }
@@ -1013,24 +1074,18 @@ function openApptDetail(id){
   document.getElementById('ma-body').innerHTML=`
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <span class="badge bbl">${ico} ${a.tipo||'–'}</span>
-      ${STATO_BADGE[a.stato]||''}
+      ${STATO_BADGE[a.stato]||STATO_BADGE.in_attesa}
     </div>
+    <div style="font-size:.72rem;color:var(--l4);margin-bottom:14px">Lo stato si aggiorna automaticamente quando la visita viene registrata su GynoSystem.</div>
     ${a.note?`<div style="background:var(--sf2);border-radius:10px;padding:14px;font-size:.875rem;color:var(--l2);margin-bottom:14px">${a.note}</div>`:''}
     ${a.createdBy?`<div style="background:rgba(52,199,89,.08);border:1px solid rgba(52,199,89,.15);border-radius:10px;padding:10px 14px;font-size:.82rem;color:var(--l2);margin-bottom:14px;display:flex;align-items:center;gap:8px">
       <span style="font-size:1rem">👤</span>
       <div><div style="font-weight:600">${a.createdBy}</div><div style="font-size:.72rem;color:var(--l4)">${a.createdByOrg||'Prenotato da GynoBook'}</div></div>
-    </div>`:''}
-    <div style="margin-bottom:14px">
-      <label class="fl" style="margin-bottom:8px">Cambia Stato</label>
-      <div class="stato-pills">
-        <button class="stato-pill ${a.stato==='confermato'?'active':''}" onclick="updateApptStato('${id}','confermato',this.closest('.stato-pills'))">✅ Confermato</button>
-        <button class="stato-pill ${a.stato==='in_attesa'?'active':''}" onclick="updateApptStato('${id}','in_attesa',this.closest('.stato-pills'))">⏳ In attesa</button>
-        <button class="stato-pill ${a.stato==='completato'?'active':''}" onclick="updateApptStato('${id}','completato',this.closest('.stato-pills'))">✔️ Completato</button>
-        <button class="stato-pill ${a.stato==='cancellato'?'active':''}" onclick="updateApptStato('${id}','cancellato',this.closest('.stato-pills'))">❌ Cancellato</button>
-      </div>
-    </div>`;
+    </div>`:''}`;
   document.getElementById('ma-del-btn').style.display='inline-flex';
   document.getElementById('ma-del-btn').onclick=()=>{if(confirm('Eliminare questo appuntamento?'))delAppt(id);};
+  document.getElementById('ma-anag-btn').style.display=a.pazienteId?'inline-flex':'none';
+  document.getElementById('ma-anag-btn').onclick=()=>openPazDetail(a.pazienteId);
   document.getElementById('ma-edit-btn').style.display='inline-flex';
   document.getElementById('ma-edit-btn').textContent='✏️ Modifica';
   document.getElementById('ma-edit-btn').onclick=()=>openApptEdit(id);
@@ -1051,25 +1106,24 @@ function openApptEdit(id){
         </select>
       </div>
     </div>
-    <div class="gr2" style="margin-bottom:12px">
-      <div class="fg"><label class="fl">Tipo Visita *</label>
-        <select id="me-tipo">
-          ${[['ginecologica','🌸 Visita Ginecologica'],['ostetrica','🤰 Visita Ostetrica'],['ecografia','🖥️ Ecografia'],['primo_accesso','🔬 Primo Accesso'],['controllo','💊 Controllo Farmacologico'],['ritiro_referto','📋 Ritiro Referto']]
-            .map(([v,l])=>`<option value="${v}" ${a.tipo===v?'selected':''}>${l}</option>`).join('')}
-        </select>
-      </div>
-      <div class="fg"><label class="fl">Stato</label>
-        <select id="me-stato">
-          ${[['confermato','✅ Confermato'],['in_attesa','⏳ In attesa'],['completato','✔️ Completato'],['cancellato','❌ Cancellato']]
-            .map(([v,l])=>`<option value="${v}" ${a.stato===v?'selected':''}>${l}</option>`).join('')}
-        </select>
-      </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Tipo Visita *</label>
+      <select id="me-tipo">
+        ${[['ginecologica','🌸 Visita Ginecologica'],['ostetrica','🤰 Visita Ostetrica'],['ecografia','🖥️ Ecografia'],['primo_accesso','🔬 Primo Accesso'],['controllo','💊 Controllo Farmacologico'],['ritiro_referto','📋 Ritiro Referto']]
+          .map(([v,l])=>`<option value="${v}" ${a.tipo===v?'selected':''}>${l}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fg" style="margin-bottom:14px">
+      <label class="fl" style="margin-bottom:6px">Stato (automatico)</label>
+      <div>${STATO_BADGE[a.stato]||STATO_BADGE.in_attesa}</div>
+      <div style="font-size:.7rem;color:var(--l4);margin-top:5px">Cambia solo quando la visita viene registrata su GynoSystem.</div>
     </div>
     <div class="fg" style="margin-bottom:4px">
       <label class="fl">Note</label>
       <textarea id="me-note" rows="3">${a.note||''}</textarea>
     </div>`;
   document.getElementById('ma-del-btn').style.display='none';
+  document.getElementById('ma-anag-btn').style.display='none';
   document.getElementById('ma-edit-btn').style.display='inline-flex';
   document.getElementById('ma-edit-btn').textContent='💾 Salva Modifiche';
   document.getElementById('ma-edit-btn').onclick=()=>saveApptEdit(id);
@@ -1082,8 +1136,8 @@ async function saveApptEdit(id){
   const upd={
     data, ora, tipo,
     durata: Number(sv2('me-dur'))||30,
-    stato: sv2('me-stato'),
     note: sv2('me-note')
+    // Stato NON modificabile da qui: lo aggiorna solo GynoSystem quando registra la visita.
   };
   try{
     await db.collection('appuntamenti').doc(id).update(upd);
@@ -1093,16 +1147,6 @@ async function saveApptEdit(id){
     closeModal('m-appt');
     renderOggi();renderAllAppts();
     toast('✅ Appuntamento aggiornato','s');
-  }catch(e){toast('Errore: '+e.message,'e');}
-}
-
-async function updateApptStato(id,stato,pills){
-  try{
-    await db.collection('appuntamenti').doc(id).update({stato});
-    const a=APPUNTAMENTI.find(x=>x.id===id);if(a)a.stato=stato;
-    pills.querySelectorAll('.stato-pill').forEach(b=>b.classList.remove('active'));
-    pills.querySelector(`[onclick*="${stato}"]`).classList.add('active');
-    renderOggi();toast('Stato aggiornato','s');
   }catch(e){toast('Errore: '+e.message,'e');}
 }
 
