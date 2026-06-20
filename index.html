@@ -535,6 +535,13 @@ function setFb(st,msg){
 //  STATE
 // ═══════════════════════════════════════════
 let PAZIENTI=[], APPUNTAMENTI=[];
+
+// Hash SHA-256 (Web Crypto API nativa): usata per verificare le password studio
+// e quella di eliminazione paziente senza mai confrontarle in chiaro.
+async function sha256Hex(text){
+  const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 let selectedPazId=null, selectedPazNome='';
 // Configurazione disponibilità letta da GynoSystem (config/disponibilita su Firestore)
 let DISPO={studi:[],orariLimitati:false};
@@ -579,7 +586,7 @@ function loadSavedOperator(){
   return false;
 }
 
-function doIdentify(){
+async function doIdentify(){
   const nome=document.getElementById('lid-nome').value.trim();
   const studioId=document.getElementById('lid-studio').value;
   if(!nome||!studioId){
@@ -589,20 +596,21 @@ function doIdentify(){
     setTimeout(()=>e.style.display='none',3000);
     return;
   }
-  let azienda='', isDottoressa=false, studioPwd='';
+  let azienda='', isDottoressa=false, studioPwdHash='';
   if(studioId==='__dottoressa__'){
     azienda='Dr.ssa Cristina Guidi';
     isDottoressa=true;
   }else{
     const s=DISPO.studi.find(x=>x.id===studioId);
     azienda=s?s.nome:'';
-    studioPwd=s?(s.password||''):'';
+    studioPwdHash=s?(s.password||''):''; // hash SHA-256, mai la password in chiaro
   }
   // Verifica password, solo se lo studio ne ha impostata una
-  if(studioPwd){
+  if(studioPwdHash){
     const pwd=prompt(`Inserisci la password di accesso per "${azienda}":`);
     if(pwd===null)return;
-    if(pwd!==studioPwd){
+    const pwdHash=await sha256Hex(pwd);
+    if(pwdHash!==studioPwdHash){
       toast('🚫 Password errata','e');
       return;
     }
@@ -1171,11 +1179,16 @@ async function savePazEdit(id){
   }catch(e){toast('Errore: '+e.message,'e');}
 }
 
+// Stesso hash usato in GynoSystem per la stessa operazione: la password
+// non compare mai in chiaro nel codice di nessuno dei due file.
+const DELETE_PAZ_PASS_HASH = "a50f1be1267a0efb40492d2ac7b85cda532885434385fc7a2dde9acddf978d36";
+
 async function delPaz(id){
   if(!confirm('Eliminare definitivamente questa paziente da Firebase?'))return;
   const pwd=prompt('Per confermare l\'eliminazione, digita la password:');
   if(pwd===null)return;
-  if(pwd!=='Samuele2025'){toast('Password errata, eliminazione annullata','e');return;}
+  const pwdHash=await sha256Hex(pwd);
+  if(pwdHash!==DELETE_PAZ_PASS_HASH){toast('Password errata, eliminazione annullata','e');return;}
   try{await db.collection('pazienti').doc(id).delete();PAZIENTI=PAZIENTI.filter(p=>p.id!==id);renderPazTable();closeModal('m-appt');toast('Paziente eliminata','s');}
   catch(e){toast('Errore: '+e.message,'e');}
 }
