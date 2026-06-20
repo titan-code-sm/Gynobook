@@ -279,18 +279,19 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
     <label class="lid-label">Il tuo nome *</label>
     <input type="text" id="lid-nome" class="lid-input" placeholder="es. Maria Rossi" maxlength="60"
-      onkeydown="if(event.key==='Enter')document.getElementById('lid-azienda').focus()">
+      onkeydown="if(event.key==='Enter')document.getElementById('lid-studio').focus()">
     <div class="lid-tip">Il nome apparirà su ogni prenotazione che crei</div>
 
-    <label class="lid-label">Studio / Organizzazione</label>
-    <input type="text" id="lid-azienda" class="lid-input" placeholder="es. Segreteria Studio, Infermieristica..."
-      maxlength="80" onkeydown="if(event.key==='Enter')doIdentify()">
-    <div class="lid-tip">Lascia vuoto se non applicabile</div>
+    <label class="lid-label">Studio *</label>
+    <select id="lid-studio" class="lid-input">
+      <option value="">Caricamento studi...</option>
+    </select>
+    <div class="lid-tip">Seleziona lo studio con cui accedi</div>
 
     <button class="lbtn" onclick="doIdentify()">
       <span>Inizia</span> <span>→</span>
     </button>
-    <div id="lerr" class="lerr">Inserisci il tuo nome per continuare.</div>
+    <div id="lerr" class="lerr">Inserisci il tuo nome e seleziona uno studio per continuare.</div>
   </div>
 </div>
 
@@ -419,13 +420,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <button class="btn bgh" style="width:100%;justify-content:center;margin-bottom:20px" onclick="openNuovaPazModal()">+ Crea Nuova Paziente</button>
 
     <div class="sl">Dettagli Appuntamento</div>
-    <div class="gr3" style="margin-bottom:12px">
-      <div class="fg"><label class="fl">Data *</label><input type="date" id="pr-data"></div>
-      <div class="fg"><label class="fl">Ora *</label><input type="time" id="pr-ora"></div>
+    <div class="gr3" style="margin-bottom:8px">
+      <div class="fg"><label class="fl">Data *</label><input type="date" id="pr-data" onchange="checkDisponibilitaData()"></div>
+      <div class="fg"><label class="fl">Ora *</label><input type="time" id="pr-ora" onchange="checkDisponibilitaOra()"></div>
       <div class="fg"><label class="fl">Durata (min)</label>
         <select id="pr-dur"><option value="20">20 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option></select>
       </div>
     </div>
+    <div id="dispo-hint" style="display:none;margin-bottom:12px;font-size:.78rem;border-radius:10px;padding:9px 13px"></div>
     <div class="fg" style="margin-bottom:12px">
       <label class="fl">Tipo Visita *</label>
       <select id="pr-tipo">
@@ -533,12 +535,33 @@ function setFb(st,msg){
 // ═══════════════════════════════════════════
 let PAZIENTI=[], APPUNTAMENTI=[];
 let selectedPazId=null, selectedPazNome='';
+// Configurazione disponibilità letta da GynoSystem (config/disponibilita su Firestore)
+let DISPO={studi:[],orariLimitati:false};
 let editApptId=null;
 let OPERATOR={nome:'', azienda:''};
 
 // ═══════════════════════════════════════════
 //  IDENTITÀ OPERATORE (no password)
 // ═══════════════════════════════════════════
+async function loadDisponibilitaConfig(){
+  const sel=document.getElementById('lid-studio');
+  try{
+    if(!fbOK){ sel.innerHTML='<option value="">Dr.ssa Cristina Guidi</option>'; return; }
+    const doc=await db.collection('config').doc('disponibilita').get();
+    if(doc.exists){
+      const d=doc.data();
+      DISPO.studi=d.studi||[];
+      DISPO.orariLimitati=!!d.orariLimitati;
+    }
+  }catch(e){
+    console.warn('Errore caricamento disponibilità:',e);
+  }
+  // Popola il select: prima la Dr.ssa (accesso medico), poi gli studi esterni configurati
+  const opts=['<option value="__dottoressa__">👩‍⚕️ Dr.ssa Cristina Guidi</option>'];
+  DISPO.studi.forEach(s=>opts.push(`<option value="${s.id}">🏥 ${s.nome}</option>`));
+  sel.innerHTML=opts.join('');
+}
+
 function loadSavedOperator(){
   try{
     const saved=localStorage.getItem('gb_operator');
@@ -557,15 +580,23 @@ function loadSavedOperator(){
 
 function doIdentify(){
   const nome=document.getElementById('lid-nome').value.trim();
-  const azienda=document.getElementById('lid-azienda').value.trim();
-  if(!nome){
+  const studioId=document.getElementById('lid-studio').value;
+  if(!nome||!studioId){
     const e=document.getElementById('lerr');
     e.style.display='block';
     document.getElementById('lid-nome').focus();
     setTimeout(()=>e.style.display='none',3000);
     return;
   }
-  OPERATOR={nome, azienda};
+  let azienda='', isDottoressa=false;
+  if(studioId==='__dottoressa__'){
+    azienda='Dr.ssa Cristina Guidi';
+    isDottoressa=true;
+  }else{
+    const s=DISPO.studi.find(x=>x.id===studioId);
+    azienda=s?s.nome:'';
+  }
+  OPERATOR={nome, azienda, studioId, isDottoressa};
   localStorage.setItem('gb_operator', JSON.stringify(OPERATOR));
   applyOperator();
   document.getElementById('lov').style.display='none';
@@ -594,13 +625,14 @@ function changeOperator(){
   const chip=document.getElementById('op-chip');
   if(chip) chip.style.display='none';
   document.getElementById('lid-nome').value='';
-  document.getElementById('lid-azienda').value='';
+  loadDisponibilitaConfig();
   document.getElementById('lov').style.display='flex';
   setTimeout(()=>document.getElementById('lid-nome').focus(),200);
 }
 
 // Avvio: controlla se c'è già un operatore salvato
 window.addEventListener('DOMContentLoaded',()=>{
+  loadDisponibilitaConfig(); // serve sia per popolare il login che per i filtri prenotazione
   if(!loadSavedOperator()){
     // Prima volta → mostra schermata identità
     setTimeout(()=>document.getElementById('lid-nome')?.focus(), 200);
@@ -614,6 +646,7 @@ async function init(){
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('pr-data').value=today;
   document.getElementById('agenda-date').value=today;
+  checkDisponibilitaData();
   buildPWA();
   await loadAll();
   renderOggi();
@@ -876,6 +909,73 @@ document.addEventListener('click',e=>{if(!e.target.closest('.paz-search-wrap'))d
 // ═══════════════════════════════════════════
 //  SAVE APPUNTAMENTO
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  VINCOLI DISPONIBILITÀ (basati sullo studio loggato)
+// ═══════════════════════════════════════════
+// La Dr.ssa stessa non ha vincoli: decide lei i propri orari, può prenotare sempre.
+// Gli studi esterni, se "Orari Limitati" è attivo, possono prenotare solo nelle
+// fasce configurate per loro in GynoSystem (giorno della settimana ricorrente).
+function getFasceStudioLoggato(){
+  if(!OPERATOR.studioId || OPERATOR.isDottoressa) return null; // nessun vincolo
+  const s=DISPO.studi.find(x=>x.id===OPERATOR.studioId);
+  return s ? (s.fasce||[]) : [];
+}
+
+function vincoliAttivi(){
+  return DISPO.orariLimitati && !OPERATOR.isDottoressa && OPERATOR.studioId;
+}
+
+// Ritorna le fasce orarie valide per una data specifica (in base al giorno della settimana), o null se nessun vincolo
+function fasceValidePerData(dataStr){
+  if(!vincoliAttivi())return null;
+  const fasce=getFasceStudioLoggato();
+  if(!fasce)return null;
+  const d=new Date(dataStr+'T12:00:00');
+  let giorno=d.getDay()-1; if(giorno<0)giorno=6; // 0=Lunedì...6=Domenica, coerente con GynoSystem
+  return fasce.filter(f=>f.giorno===giorno);
+}
+
+function checkDisponibilitaData(){
+  const hint=document.getElementById('dispo-hint');
+  const data=document.getElementById('pr-data').value;
+  if(!data||!vincoliAttivi()){hint.style.display='none';return;}
+  const fasce=fasceValidePerData(data);
+  if(!fasce||!fasce.length){
+    hint.style.display='block';
+    hint.style.background='var(--rddim)';hint.style.color='#c0392b';
+    hint.innerHTML=`🚫 ${OPERATOR.azienda} non riceve in questo giorno. Scegli un'altra data.`;
+    return;
+  }
+  hint.style.display='block';
+  hint.style.background='var(--gndim)';hint.style.color='#1a7a32';
+  hint.innerHTML=`✅ Orari disponibili per ${OPERATOR.azienda}: `+fasce.map(f=>`${f.inizio}–${f.fine}`).join(', ');
+}
+
+function checkDisponibilitaOra(){
+  const data=document.getElementById('pr-data').value;
+  const ora=document.getElementById('pr-ora').value;
+  if(!data||!ora||!vincoliAttivi())return;
+  const fasce=fasceValidePerData(data);
+  if(!fasce||!fasce.length)return; // già segnalato da checkDisponibilitaData
+  const dentro=fasce.some(f=>ora>=f.inizio&&ora<=f.fine);
+  const hint=document.getElementById('dispo-hint');
+  if(!dentro){
+    hint.style.display='block';
+    hint.style.background='var(--rddim)';hint.style.color='#c0392b';
+    hint.innerHTML=`🚫 Orario fuori fascia. Disponibile: `+fasce.map(f=>`${f.inizio}–${f.fine}`).join(', ');
+  }
+}
+
+// Verifica finale prima del salvataggio: true se la combinazione data/ora è ammessa
+function validaDisponibilitaAppt(data,ora){
+  if(!vincoliAttivi())return {ok:true};
+  const fasce=fasceValidePerData(data);
+  if(!fasce||!fasce.length)return {ok:false,msg:`${OPERATOR.azienda} non riceve in questo giorno`};
+  const dentro=fasce.some(f=>ora>=f.inizio&&ora<=f.fine);
+  if(!dentro)return {ok:false,msg:'Orario fuori dalla fascia disponibile per '+OPERATOR.azienda};
+  return {ok:true};
+}
+
 async function saveAppt(){
   if(!fbOK){toast('Firebase non disponibile','e');return;}
   const data=document.getElementById('pr-data').value;
@@ -885,6 +985,8 @@ async function saveAppt(){
   if(!data){toast('Inserisci la data','e');return;}
   if(!ora){toast('Inserisci l\'orario','e');return;}
   if(!tipo){toast('Seleziona il tipo di visita','e');return;}
+  const check=validaDisponibilitaAppt(data,ora);
+  if(!check.ok){toast('🚫 '+check.msg,'e');return;}
   const appt={
     pazienteId:selectedPazId,
     pazienteNome:selectedPazNome,
