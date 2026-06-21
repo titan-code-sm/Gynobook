@@ -289,24 +289,38 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="lcard">
     <div class="lav">📅</div>
     <h1>GynoBook</h1>
-    <div class="lsub">Prenotazioni Studio Dr.ssa Cristina Guidi</div>
+    <div class="lsub" id="lsub-dinamico">Seleziona il medico con cui prenotare</div>
 
-    <label class="lid-label">Email *</label>
-    <input type="email" id="lid-email" class="lid-input" placeholder="es. novelune@studio.it" maxlength="80"
-      onkeydown="if(event.key==='Enter')document.getElementById('lid-pass').focus()">
+    <!-- STEP 1: scelta del dottore (saltato in automatico se ce n'è solo uno) -->
+    <div id="step-dottore">
+      <label class="lid-label">Medico *</label>
+      <select id="lid-dottore" class="lid-input" onchange="selezionaDottore()">
+        <option value="">-- Seleziona --</option>
+      </select>
+    </div>
 
-    <label class="lid-label">Password *</label>
-    <input type="password" id="lid-pass" class="lid-input" placeholder="Password"
-      onkeydown="if(event.key==='Enter')document.getElementById('lid-nome').focus()">
+    <!-- STEP 2: email + password + nome (mostrato dopo aver scelto il dottore) -->
+    <div id="step-credenziali" style="display:none">
+      <button type="button" class="forgot-link" style="margin-bottom:14px" onclick="tornaSceltaDottore()">← Cambia medico</button>
 
-    <label class="lid-label">Il tuo nome *</label>
-    <input type="text" id="lid-nome" class="lid-input" placeholder="es. Maria Rossi" maxlength="60"
-      onkeydown="if(event.key==='Enter')doIdentify()">
-    <div class="lid-tip">Il nome apparirà su ogni prenotazione che crei</div>
+      <label class="lid-label">Email *</label>
+      <input type="email" id="lid-email" class="lid-input" placeholder="es. novelune@studio.it" maxlength="80"
+        onkeydown="if(event.key==='Enter')document.getElementById('lid-pass').focus()">
 
-    <button class="lbtn" onclick="doIdentify()">
-      <span>Accedi</span> <span>→</span>
-    </button>
+      <label class="lid-label">Password *</label>
+      <input type="password" id="lid-pass" class="lid-input" placeholder="Password"
+        onkeydown="if(event.key==='Enter')document.getElementById('lid-nome').focus()">
+
+      <label class="lid-label">Il tuo nome *</label>
+      <input type="text" id="lid-nome" class="lid-input" placeholder="es. Maria Rossi" maxlength="60"
+        onkeydown="if(event.key==='Enter')doIdentify()">
+      <div class="lid-tip">Il nome apparirà su ogni prenotazione che crei</div>
+
+      <button class="lbtn" onclick="doIdentify()">
+        <span>Accedi</span> <span>→</span>
+      </button>
+    </div>
+
     <div id="lerr" class="lerr">Email o password non corretti.</div>
   </div>
 </div>
@@ -335,6 +349,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div style="flex:1;min-width:0">
       <div class="op-nome" id="op-nome-label">—</div>
       <div class="op-azienda" id="op-azienda-label">—</div>
+      <div id="op-dottore-label" style="font-size:.68rem;color:rgba(255,255,255,.35);margin-top:1px"></div>
     </div>
   </div>
   <div class="tree">
@@ -561,12 +576,54 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <script>
 // ═══════════════════════════════════════════
-//  FIREBASE
+//  ELENCO DOTTORI (un progetto Firebase per ciascuno)
 // ═══════════════════════════════════════════
-const FB={apiKey:"AIzaSyChOT7bJfATOF-qsWIb1fFXtme3nsvUxi4",authDomain:"gynosistem.firebaseapp.com",projectId:"gynosistem",messagingSenderId:"355036111162",appId:"1:355036111162:web:dfe1e1aa73a1086d4ab003"};
-let db,fbOK=false;
-try{if(!firebase.apps.length)firebase.initializeApp(FB);db=firebase.firestore();fbOK=true;setFb('ok','Firebase connesso');}
-catch(e){setFb('err','Firebase offline');}
+// Quando aggiungi un nuovo dottore, crea per lui un nuovo progetto Firebase
+// (Firestore + Authentication attivati, stesse regole di gynosistem.rules) e
+// aggiungi qui le sue informazioni. L'email del dottore stesso (per il suo
+// accesso senza vincoli) va indicata in dottoressaEmail.
+const DOTTORI=[
+  {
+    id:'guidi',
+    nome:'Dr.ssa Cristina Guidi',
+    specialita:'Ginecologia · Ostetricia',
+    dottoressaEmail:'dr.guidi@gynosistem.it',
+    config:{apiKey:"AIzaSyChOT7bJfATOF-qsWIb1fFXtme3nsvUxi4",authDomain:"gynosistem.firebaseapp.com",projectId:"gynosistem",messagingSenderId:"355036111162",appId:"1:355036111162:web:dfe1e1aa73a1086d4ab003"}
+  }
+  // Esempio per un secondo dottore (decommenta e compila quando lo crei):
+  // {
+  //   id:'rossi',
+  //   nome:'Dr. Marco Rossi',
+  //   specialita:'Ginecologia',
+  //   dottoressaEmail:'dr.rossi@altroprogetto.it',
+  //   config:{apiKey:"...",authDomain:"...",projectId:"...",messagingSenderId:"...",appId:"..."}
+  // }
+];
+
+// ═══════════════════════════════════════════
+//  FIREBASE (connessione dinamica al dottore scelto)
+// ═══════════════════════════════════════════
+let db=null, gbAuthInst=null, fbOK=false;
+let dottoreAttivo=null; // oggetto da DOTTORI, impostato quando l'utente lo seleziona
+
+function connettiADottore(dottore){
+  try{
+    // Un'app Firebase dedicata per ogni dottore (nome univoco basato sul suo id),
+    // così si può cambiare dottore senza ricaricare la pagina e senza conflitti.
+    const appName='gynobook-'+dottore.id;
+    const appInst = firebase.apps.find(a=>a.name===appName) || firebase.initializeApp(dottore.config,appName);
+    db = appInst.firestore();
+    gbAuthInst = appInst.auth();
+    gbAuthInst.setPersistence(firebase.auth.Auth.Persistence.LOCAL); // isolata da GynoSystem
+    fbOK=true;
+    dottoreAttivo=dottore;
+    setFb('ok','Firebase connesso · '+dottore.nome);
+  }catch(e){
+    fbOK=false;
+    setFb('err','Firebase offline');
+    console.warn('Errore connessione dottore:',e);
+  }
+}
 
 function setFb(st,msg){
   ['fbdot','mob-fbdot'].forEach(id=>{const d=document.getElementById(id);if(d)d.className='fbdot'+( st==='ok'?' ok':st==='err'?' err':'');});
@@ -590,14 +647,9 @@ let selectedPazId=null, selectedPazNome='';
 let DISPO={studi:[]};
 let editApptId=null;
 let OPERATOR={nome:'', azienda:''};
-let gbAuth=null;
-
-// Email che identifica l'accesso della dottoressa stessa (nessun vincolo di orari).
-// Deve corrispondere all'account Firebase Auth che usi tu per accedere a GynoBook.
-const DOTTORESSA_EMAIL='dr.guidi@gynosistem.it';
 
 // ═══════════════════════════════════════════
-//  IDENTITÀ OPERATORE (Firebase Authentication)
+//  IDENTITÀ OPERATORE (Firebase Authentication, multi-dottore)
 // ═══════════════════════════════════════════
 async function loadDisponibilitaConfig(){
   if(!fbOK) return;
@@ -620,7 +672,41 @@ function loadSavedOperator(){
   return false; // l'accesso vero è sempre gestito da Firebase Auth, mai da localStorage
 }
 
+// Popola lo step 1 (scelta del dottore). Se ce n'è solo uno configurato, lo
+// seleziona e passa subito allo step 2: il centro non deve scegliere nulla.
+function popolaSelectDottori(){
+  const sel=document.getElementById('lid-dottore');
+  sel.innerHTML='<option value="">-- Seleziona --</option>'
+    + DOTTORI.map(d=>`<option value="${d.id}">${d.nome}</option>`).join('');
+  if(DOTTORI.length===1){
+    sel.value=DOTTORI[0].id;
+    selezionaDottore();
+  }
+}
+
+function selezionaDottore(){
+  const id=document.getElementById('lid-dottore').value;
+  if(!id)return;
+  const dottore=DOTTORI.find(d=>d.id===id);
+  if(!dottore)return;
+  connettiADottore(dottore);
+  avviaAuthListener();
+  document.getElementById('lsub-dinamico').textContent=dottore.specialita?`${dottore.nome} · ${dottore.specialita}`:dottore.nome;
+  document.getElementById('step-dottore').style.display='none';
+  document.getElementById('step-credenziali').style.display='block';
+  loadDisponibilitaConfig(); // ora che siamo connessi al Firebase giusto, carica gli studi di QUEL dottore
+  setTimeout(()=>document.getElementById('lid-email')?.focus(),150);
+}
+
+function tornaSceltaDottore(){
+  document.getElementById('step-dottore').style.display='block';
+  document.getElementById('step-credenziali').style.display='none';
+  document.getElementById('lsub-dinamico').textContent='Seleziona il medico con cui prenotare';
+  if(DOTTORI.length>1) document.getElementById('lid-dottore').value='';
+}
+
 async function doIdentify(){
+  if(!dottoreAttivo){ tornaSceltaDottore(); return; }
   const email=document.getElementById('lid-email').value.trim();
   const pass=document.getElementById('lid-pass').value;
   const nome=document.getElementById('lid-nome').value.trim();
@@ -632,9 +718,8 @@ async function doIdentify(){
     return;
   }
   try{
-    if(!gbAuth) gbAuth=firebase.auth();
-    await gbAuth.signInWithEmailAndPassword(email,pass);
-    // Il listener onAuthStateChanged completa l'accesso (vedi sotto)
+    await gbAuthInst.signInWithEmailAndPassword(email,pass);
+    // Il listener onAuthStateChanged (vedi sotto) completa l'accesso
     try{ localStorage.setItem('gb_operator_nome', nome); }catch(e){}
   }catch(err){
     const e=document.getElementById('lerr');
@@ -646,14 +731,15 @@ async function doIdentify(){
   }
 }
 
-// Determina l'identità (studio o dottoressa) a partire dall'email autenticata.
+// Determina l'identità (studio o dottore stesso) a partire dall'email autenticata,
+// nell'ambito del dottore/progetto Firebase a cui ci si è connessi.
 function risolviIdentitaDaEmail(email){
-  if(email.toLowerCase()===DOTTORESSA_EMAIL.toLowerCase()){
-    return {azienda:'Dr.ssa Cristina Guidi', studioId:null, isDottoressa:true};
+  if(dottoreAttivo && email.toLowerCase()===dottoreAttivo.dottoressaEmail.toLowerCase()){
+    return {azienda:dottoreAttivo.nome, studioId:null, isDottoressa:true};
   }
   const s=DISPO.studi.find(x=>(x.email||'').toLowerCase()===email.toLowerCase());
   if(s) return {azienda:s.nome, studioId:s.id, isDottoressa:false};
-  // Email autenticata ma non associata a nessuno studio configurato in GynoSystem
+  // Email autenticata ma non associata a nessuno studio configurato per questo dottore
   return {azienda:'Operatore non configurato', studioId:null, isDottoressa:false};
 }
 
@@ -667,6 +753,9 @@ function applyOperator(){
   if(nl) nl.textContent=OPERATOR.nome;
   const al=document.getElementById('op-azienda-label');
   if(al) al.textContent=OPERATOR.azienda||'Studio Dr.ssa Guidi';
+  // Mostra anche con quale dottore si è collegati, utile quando ce ne sarà più di uno
+  const dl=document.getElementById('op-dottore-label');
+  if(dl) dl.textContent=dottoreAttivo?dottoreAttivo.nome:'';
   // Mobile bar subtitle
   const ms=document.querySelector('.mbarsub');
   if(ms) ms.textContent=OPERATOR.nome;
@@ -674,19 +763,20 @@ function applyOperator(){
 
 async function changeOperator(){
   if(!confirm(`Cambiare operatore?\nOperatore attuale: ${OPERATOR.nome}`)) return;
-  try{ await gbAuth.signOut(); }catch(e){}
+  try{ if(gbAuthInst) await gbAuthInst.signOut(); }catch(e){}
   location.reload();
 }
 
-// Avvio: Firebase Auth gestisce la sessione in automatico (persiste tra le visite,
-// come prima con localStorage, ma con verifica reale lato server).
-window.addEventListener('DOMContentLoaded',async()=>{
-  await loadDisponibilitaConfig();
+// Avvio: per prima cosa si scelgono i dottori disponibili (saltato se ce n'è
+// solo uno); la connessione e l'autenticazione avvengono dopo quella scelta.
+window.addEventListener('DOMContentLoaded',()=>{
+  popolaSelectDottori();
   loadSavedOperator(); // ripristina solo il nome scritto in precedenza, comodità di digitazione
-  setTimeout(()=>document.getElementById('lid-email')?.focus(), 200);
+});
 
-  gbAuth=firebase.auth();
-  gbAuth.onAuthStateChanged(async user=>{
+// Da chiamare quando l'utente ha scelto il dottore e si è connessi al suo Firebase.
+function avviaAuthListener(){
+  gbAuthInst.onAuthStateChanged(async user=>{
     if(user){
       await loadDisponibilitaConfig(); // ricarica nel caso siano cambiati gli studi nel frattempo
       const ident=risolviIdentitaDaEmail(user.email);
@@ -700,7 +790,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
       document.getElementById('lov').style.display='flex';
     }
   });
-});
+}
 
 // ═══════════════════════════════════════════
 //  INIT
@@ -897,13 +987,14 @@ function apptCard(a,showDate=false){
   const sb=STATO_BADGE[a.stato]||'';
   const dateStr=showDate?`<span style="font-size:.72rem;color:var(--l4);background:var(--sf2);padding:2px 8px;border-radius:8px;margin-right:6px">${new Date(a.data+'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'})}</span>`:'';
   const creator=a.createdBy?`<div style="font-size:.7rem;color:var(--l4);margin-top:4px;display:flex;align-items:center;gap:4px">👤 <span>${a.createdBy}${a.createdByOrg?' · '+a.createdByOrg:''}</span></div>`:'';
+  const nomeClick=a.pazienteId?`onclick="event.stopPropagation();openPazDetail('${a.pazienteId}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted"`:'';
   return `<div class="appt-item" onclick="openApptDetail('${a.id}')">
     <div class="appt-time-col">
       <div class="appt-hour">${a.ora||'--:--'}</div>
       <div class="appt-dot-line"></div>
     </div>
     <div class="appt-body">
-      <div class="appt-name">${a.pazienteNome||'Paziente'}</div>
+      <div class="appt-name" ${nomeClick}>${a.pazienteNome||'Paziente'}</div>
       <div class="appt-type">${dateStr}${ico} ${a.tipo||''} ${a.durata?'· '+a.durata+' min':''}</div>
       ${a.note?`<div class="appt-note">${a.note}</div>`:''}
       <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${sb}${creator}</div>
