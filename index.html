@@ -12,6 +12,7 @@
 <title>GynoBook · Prenotazioni Dr.ssa Guidi</title>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -290,21 +291,23 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <h1>GynoBook</h1>
     <div class="lsub">Prenotazioni Studio Dr.ssa Cristina Guidi</div>
 
+    <label class="lid-label">Email *</label>
+    <input type="email" id="lid-email" class="lid-input" placeholder="es. novelune@studio.it" maxlength="80"
+      onkeydown="if(event.key==='Enter')document.getElementById('lid-pass').focus()">
+
+    <label class="lid-label">Password *</label>
+    <input type="password" id="lid-pass" class="lid-input" placeholder="Password"
+      onkeydown="if(event.key==='Enter')document.getElementById('lid-nome').focus()">
+
     <label class="lid-label">Il tuo nome *</label>
     <input type="text" id="lid-nome" class="lid-input" placeholder="es. Maria Rossi" maxlength="60"
-      onkeydown="if(event.key==='Enter')document.getElementById('lid-studio').focus()">
+      onkeydown="if(event.key==='Enter')doIdentify()">
     <div class="lid-tip">Il nome apparirà su ogni prenotazione che crei</div>
 
-    <label class="lid-label">Studio *</label>
-    <select id="lid-studio" class="lid-input">
-      <option value="">Caricamento studi...</option>
-    </select>
-    <div class="lid-tip">Seleziona lo studio con cui accedi</div>
-
     <button class="lbtn" onclick="doIdentify()">
-      <span>Inizia</span> <span>→</span>
+      <span>Accedi</span> <span>→</span>
     </button>
-    <div id="lerr" class="lerr">Inserisci il tuo nome e seleziona uno studio per continuare.</div>
+    <div id="lerr" class="lerr">Email o password non corretti.</div>
   </div>
 </div>
 
@@ -575,8 +578,9 @@ function setFb(st,msg){
 // ═══════════════════════════════════════════
 let PAZIENTI=[], APPUNTAMENTI=[];
 
-// Hash SHA-256 (Web Crypto API nativa): usata per verificare le password studio
-// e quella di eliminazione paziente senza mai confrontarle in chiaro.
+// Hash SHA-256 (Web Crypto API nativa): usata SOLO per la password di eliminazione
+// paziente (operazione locale, non protetta da Firebase Auth). Le password studio
+// non esistono più come hash custom: l'accesso è gestito da Firebase Auth vero.
 async function sha256Hex(text){
   const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -586,14 +590,18 @@ let selectedPazId=null, selectedPazNome='';
 let DISPO={studi:[]};
 let editApptId=null;
 let OPERATOR={nome:'', azienda:''};
+let gbAuth=null;
+
+// Email che identifica l'accesso della dottoressa stessa (nessun vincolo di orari).
+// Deve corrispondere all'account Firebase Auth che usi tu per accedere a GynoBook.
+const DOTTORESSA_EMAIL='dr.guidi@gynosistem.it';
 
 // ═══════════════════════════════════════════
-//  IDENTITÀ OPERATORE (no password)
+//  IDENTITÀ OPERATORE (Firebase Authentication)
 // ═══════════════════════════════════════════
 async function loadDisponibilitaConfig(){
-  const sel=document.getElementById('lid-studio');
+  if(!fbOK) return;
   try{
-    if(!fbOK){ sel.innerHTML='<option value="">Dr.ssa Cristina Guidi</option>'; return; }
     const doc=await db.collection('config').doc('disponibilita').get();
     if(doc.exists){
       const d=doc.data();
@@ -602,62 +610,51 @@ async function loadDisponibilitaConfig(){
   }catch(e){
     console.warn('Errore caricamento disponibilità:',e);
   }
-  // Popola il select: prima la Dr.ssa (accesso medico), poi gli studi esterni configurati
-  const opts=['<option value="__dottoressa__">👩‍⚕️ Dr.ssa Cristina Guidi</option>'];
-  DISPO.studi.forEach(s=>opts.push(`<option value="${s.id}">🏥 ${s.nome}</option>`));
-  sel.innerHTML=opts.join('');
 }
 
 function loadSavedOperator(){
   try{
-    const saved=localStorage.getItem('gb_operator');
-    if(saved){
-      OPERATOR=JSON.parse(saved);
-      if(OPERATOR.nome){
-        applyOperator();
-        document.getElementById('lov').style.display='none';
-        init();
-        return true;
-      }
-    }
+    const saved=localStorage.getItem('gb_operator_nome');
+    if(saved) document.getElementById('lid-nome').value=saved;
   }catch(e){}
-  return false;
+  return false; // l'accesso vero è sempre gestito da Firebase Auth, mai da localStorage
 }
 
 async function doIdentify(){
+  const email=document.getElementById('lid-email').value.trim();
+  const pass=document.getElementById('lid-pass').value;
   const nome=document.getElementById('lid-nome').value.trim();
-  const studioId=document.getElementById('lid-studio').value;
-  if(!nome||!studioId){
+  if(!email||!pass||!nome){
     const e=document.getElementById('lerr');
+    e.textContent='Inserisci email, password e il tuo nome.';
     e.style.display='block';
-    document.getElementById('lid-nome').focus();
-    setTimeout(()=>e.style.display='none',3000);
+    setTimeout(()=>e.style.display='none',3500);
     return;
   }
-  let azienda='', isDottoressa=false, studioPwdHash='';
-  if(studioId==='__dottoressa__'){
-    azienda='Dr.ssa Cristina Guidi';
-    isDottoressa=true;
-  }else{
-    const s=DISPO.studi.find(x=>x.id===studioId);
-    azienda=s?s.nome:'';
-    studioPwdHash=s?(s.password||''):''; // hash SHA-256, mai la password in chiaro
+  try{
+    if(!gbAuth) gbAuth=firebase.auth();
+    await gbAuth.signInWithEmailAndPassword(email,pass);
+    // Il listener onAuthStateChanged completa l'accesso (vedi sotto)
+    try{ localStorage.setItem('gb_operator_nome', nome); }catch(e){}
+  }catch(err){
+    const e=document.getElementById('lerr');
+    e.textContent = err.code==='auth/too-many-requests'
+      ? 'Troppi tentativi falliti. Riprova più tardi.'
+      : 'Email o password non corretti.';
+    e.style.display='block';
+    setTimeout(()=>e.style.display='none',4000);
   }
-  // Verifica password, solo se lo studio ne ha impostata una
-  if(studioPwdHash){
-    const pwd=prompt(`Inserisci la password di accesso per "${azienda}":`);
-    if(pwd===null)return;
-    const pwdHash=await sha256Hex(pwd);
-    if(pwdHash!==studioPwdHash){
-      toast('🚫 Password errata','e');
-      return;
-    }
+}
+
+// Determina l'identità (studio o dottoressa) a partire dall'email autenticata.
+function risolviIdentitaDaEmail(email){
+  if(email.toLowerCase()===DOTTORESSA_EMAIL.toLowerCase()){
+    return {azienda:'Dr.ssa Cristina Guidi', studioId:null, isDottoressa:true};
   }
-  OPERATOR={nome, azienda, studioId, isDottoressa};
-  localStorage.setItem('gb_operator', JSON.stringify(OPERATOR));
-  applyOperator();
-  document.getElementById('lov').style.display='none';
-  init();
+  const s=DISPO.studi.find(x=>(x.email||'').toLowerCase()===email.toLowerCase());
+  if(s) return {azienda:s.nome, studioId:s.id, isDottoressa:false};
+  // Email autenticata ma non associata a nessuno studio configurato in GynoSystem
+  return {azienda:'Operatore non configurato', studioId:null, isDottoressa:false};
 }
 
 function applyOperator(){
@@ -675,25 +672,34 @@ function applyOperator(){
   if(ms) ms.textContent=OPERATOR.nome;
 }
 
-function changeOperator(){
+async function changeOperator(){
   if(!confirm(`Cambiare operatore?\nOperatore attuale: ${OPERATOR.nome}`)) return;
-  localStorage.removeItem('gb_operator');
-  OPERATOR={nome:'',azienda:''};
-  const chip=document.getElementById('op-chip');
-  if(chip) chip.style.display='none';
-  document.getElementById('lid-nome').value='';
-  loadDisponibilitaConfig();
-  document.getElementById('lov').style.display='flex';
-  setTimeout(()=>document.getElementById('lid-nome').focus(),200);
+  try{ await gbAuth.signOut(); }catch(e){}
+  location.reload();
 }
 
-// Avvio: controlla se c'è già un operatore salvato
+// Avvio: Firebase Auth gestisce la sessione in automatico (persiste tra le visite,
+// come prima con localStorage, ma con verifica reale lato server).
 window.addEventListener('DOMContentLoaded',async()=>{
-  await loadDisponibilitaConfig(); // deve completare PRIMA di init(), altrimenti i vincoli del centro non sono ancora noti
-  if(!loadSavedOperator()){
-    // Prima volta → mostra schermata identità
-    setTimeout(()=>document.getElementById('lid-nome')?.focus(), 200);
-  }
+  await loadDisponibilitaConfig();
+  loadSavedOperator(); // ripristina solo il nome scritto in precedenza, comodità di digitazione
+  setTimeout(()=>document.getElementById('lid-email')?.focus(), 200);
+
+  gbAuth=firebase.auth();
+  gbAuth.onAuthStateChanged(async user=>{
+    if(user){
+      await loadDisponibilitaConfig(); // ricarica nel caso siano cambiati gli studi nel frattempo
+      const ident=risolviIdentitaDaEmail(user.email);
+      const nome=document.getElementById('lid-nome').value.trim()
+        || localStorage.getItem('gb_operator_nome') || user.email;
+      OPERATOR={nome, azienda:ident.azienda, studioId:ident.studioId, isDottoressa:ident.isDottoressa};
+      applyOperator();
+      document.getElementById('lov').style.display='none';
+      init();
+    }else{
+      document.getElementById('lov').style.display='flex';
+    }
+  });
 });
 
 // ═══════════════════════════════════════════
